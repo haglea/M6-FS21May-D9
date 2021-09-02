@@ -6,10 +6,21 @@ import CommentModel from "../comments/schema.js"
 
 const blogPostsRouter = express.Router()
 
+
+// ----------------------------- blogPosts GET with authors ---------------------
 blogPostsRouter.get("/", async (req, res, next) => {
     try {
-        const blogPosts = await BlogPostModel.find({})       
-        res.send(blogPosts);  
+
+      const query = q2m(req.query)
+      const total = await BlogPostModel.countDocuments(query.criteria)
+      
+      const blogPosts = await BlogPostModel.find(query.criteria, query.options.fields)
+          .limit(query.options.limit)
+          .skip(query.options.skip)
+          .sort(query.options.sort) // no matter how I write them, mongo is going to apply  ALWAYS sort skip limit in this order
+          .populate("authors")
+
+      res.send({ links: query.links("/blogposts", total), total, blogPosts, pageTotal: Math.ceil(total / query.options.limit) })
     } catch (error) {
         next(error)
     }    
@@ -178,7 +189,7 @@ blogPostsRouter.post("/:blogPostId", async (req, res, next) => {
             } else {
               next(createError(404, `Comment with id ${req.params.commentId} not found!`))
             }
-
+          }
 
     } catch (error) {
       next(error)
